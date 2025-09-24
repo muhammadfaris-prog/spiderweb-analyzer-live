@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student PO Attainment Spider Web Analyzer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2vw;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 5vw 3vw;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: clamp(1.8rem, 6vw, 2.2rem);
+            margin-bottom: 2vw;
+            font-weight: 700;
+        }
+        .header p {
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            opacity: 0.9;
+        }
+        .upload-section {
+            padding: 5vw;
+            border-bottom: 2px solid #f0f0f0;
+            display: none;
+        }
+        .upload-section.active {
+            display: block;
+        }
+        .file-upload {
+            border: 3px dashed #4facfe;
+            border-radius: 15px;
+            padding: 5vw;
+            text-align: center;
+            background: #f8fbff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .file-upload:hover {
+            border-color: #00f2fe;
+            background: #f0f9ff;
+        }
+        .file-upload input {
+            display: none;
+        }
+        .upload-icon {
+            font-size: clamp(2rem, 8vw, 2.5rem);
+            color: #4facfe;
+            margin-bottom: 2vw;
+        }
+        .controls {
+            padding: 5vw;
+            display: flex;
+            gap: 2vw;
+            align-items: center;
+            flex-wrap: wrap;
+            background: #f8f9fa;
+        }
+        .student-input {
+            flex: 1;
+            min-width: 200px;
+        }
+        .student-input input {
+            width: 100%;
+            padding: 2vw 3vw;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            transition: border-color 0.3s ease;
+        }
+        .student-input input:focus {
+            outline: none;
+            border-color: #4facfe;
+        }
+        .btn {
+            padding: 2vw 4vw;
+            border: none;
+            border-radius: 10px;
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            touch-action: manipulation;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .btn-admin {
+            background: #ff6b6b;
+            color: white;
+        }
+        .btn-admin:hover {
+            background: #e55a5a;
+        }
+        .charts-container {
+            padding: 5vw;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 5vw;
+        }
+        .chart-wrapper {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 3vw;
+            text-align: center;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .chart-title {
+            font-size: clamp(1.1rem, 4vw, 1.2rem);
+            font-weight: 600;
+            margin-bottom: 3vw;
+            color: #333;
+        }
+        .spider-chart {
+            width: clamp(250px, 90vw, 400px);
+            height: clamp(250px, 90vw, 400px);
+            margin: 0 auto;
+        }
+        .student-info {
+            background: #e3f2fd;
+            border-radius: 10px;
+            padding: 3vw;
+            margin-bottom: 3vw;
+            font-size: clamp(0.85rem, 3vw, 0.95rem);
+            line-height: 1.4;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: clamp(1.5vw, 3vw, 20px);
+            margin-bottom: 3vw;
+            flex-wrap: wrap;
+        }
+        .legend div {
+            display: flex;
+            align-items: center;
+            gap: 1vw;
+        }
+        .legend div div {
+            width: clamp(12px, 3vw, 15px);
+            height: clamp(12px, 3vw, 15px);
+            border-radius: 3px;
+        }
+        .legend div span {
+            font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        }
+        .po-definitions {
+            margin-top: 3vw;
+            text-align: left;
+            font-size: clamp(0.75rem, 2.5vw, 0.85rem);
+            color: #333;
+            padding: 3vw;
+            background: #f8f9fa;
+            border-radius: 10px;
+            line-height: 1.5;
+            overflow-x: auto;
+        }
+        .po-definitions h4 {
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            margin-bottom: 2vw;
+        }
+        .po-definitions ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .po-definitions li {
+            margin-bottom: 2vw;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 3vw;
+            border-radius: 10px;
+            margin: 3vw 0;
+            text-align: center;
+            font-size: clamp(0.85rem, 3vw, 0.95rem);
+        }
+        .success-message {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 3vw;
+            border-radius: 10px;
+            margin: 3vw 0;
+            text-align: center;
+            font-size: clamp(0.85rem, 3vw, 0.95rem);
+        }
+        @media (max-width: 600px) {
+            .container {
+                border-radius: 10px;
+            }
+            .header {
+                padding: 6vw 4vw;
+            }
+            .controls {
+                flex-direction: column;
+                gap: 3vw;
+            }
+            .btn {
+                width: 100%;
+                padding: 3vw 4vw;
+            }
+            .student-input input {
+                padding: 3vw;
+            }
+            .spider-chart {
+                width: clamp(200px, 85vw, 300px);
+                height: clamp(200px, 85vw, 300px);
+            }
+            .po-definitions {
+                font-size: clamp(0.7rem, 2.8vw, 0.8rem);
+                padding: 4vw;
+            }
+            .po-definitions li {
+                margin-bottom: 3vw;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🕸️ Student PO Attainment Spider Web Analyzer</h1>
+            <p>Enter up to 10 UiTM IDs to visualize student PO attainments across PO1-PO11</p>
+        </div>
+        <div class="upload-section" id="uploadSection">
+            <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📊</div>
+                <h3>Upload Excel File (Admin Only)</h3>
+                <p>Click here to select your student achievement Excel file</p>
+                <p style="font-size: clamp(0.75rem, 2.5vw, 0.85rem); color: #666; margin-top: 2vw;">
+                    Expected format: UiTM ID, PO1, PO2, PO3, ..., PO11
+                </p>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" />
+            </div>
+        </div>
+        <div class="controls">
+            <div class="student-input">
+                <input type="text" id="studentIdInput" placeholder="Enter up to 10 UiTM IDs (comma-separated)" />
+            </div>
+            <button class="btn btn-primary" onclick="generateChart()">Generate Spider Web</button>
+            <button class="btn btn-secondary" onclick="showStandardKPI()">Show Standard KPI (50%)</button>
+            <button class="btn btn-admin" onclick="toggleUploadSection()">Admin: Toggle Upload</button>
+        </div>
+        <div id="messageArea"></div>
+        <div class="charts-container" id="chartsContainer" style="display: none;">
+            <div class="chart-wrapper">
+                <h3 class="chart-title">Student PO Attainment vs Standard KPI</h3>
+                <div id="studentInfo" class="student-info"></div>
+                <div class="legend">
+                    <div><div style="background: #FF0000;"></div><span>Student 1</span></div>
+                    <div><div style="background: #0000FF;"></div><span>Student 2</span></div>
+                    <div><div style="background: #00FF00;"></div><span>Student 3</span></div>
+                    <div><div style="background: #9D00FF;"></div><span>Student 4</span></div>
+                    <div><div style="background: #FF8C00;"></div><span>Student 5</span></div>
+                    <div><div style="background: #00FFFF;"></div><span>Student 6</span></div>
+                    <div><div style="background: #FF00FF;"></div><span>Student 7</span></div>
+                    <div><div style="background: #00FF7F;"></div><span>Student 8</span></div>
+                    <div><div style="background: #FF1493;"></div><span>Student 9</span></div>
+                    <div><div style="background: #FFD700;"></div><span>Student 10</span></div>
+                    <div><div style="background: #ff6b6b;"></div><span>Standard KPI (50%)</span></div>
+                </div>
+                <svg class="spider-chart" id="combinedChart"></svg>
+                <div class="po-definitions">
+                    <h4>ETAC 2024 Programme Learning Outcomes (PLOs)</h4>
+                    <ul>
+                        <li><strong>PO1: Knowledge</strong> - Apply knowledge of mathematics, science, engineering fundamentals, and engineering technology principles.</li>
+                        <li><strong>PO2: Problem Analysis</strong> - Identify, formulate, and solve engineering technology problems.</li>
+                        <li><strong>PO3: Design/Development of Solutions</strong> - Design solutions for engineering technology problems and systems with appropriate consideration for safety, environment, and sustainability.</li>
+                        <li><strong>PO4: Investigation</strong> - Conduct investigations into complex problems using research-based knowledge and methods.</li>
+                        <li><strong>PO5: Tool Usage</strong> - Select and apply appropriate techniques, resources, and modern engineering tools.</li>
+                        <li><strong>PO6: The Engineering Technologist and the World</strong> - Apply reasoning informed by contextual knowledge to assess societal, health, safety, legal, and cultural issues.</li>
+                        <li><strong>PO7: Ethics</strong> - Understand and commit to professional ethics, responsibilities, and norms of engineering technology practice.</li>
+                        <li><strong>PO8: Individual and Collaborative Team Work</strong> - Function effectively as an individual and in diverse teams.</li>
+                        <li><strong>PO9: Communications</strong> - Communicate effectively on engineering technology activities with the community and society.</li>
+                        <li><strong>PO10: Project Management and Finance</strong> - Demonstrate knowledge of project management principles and economic decision-making.</li>
+                        <li><strong>PO11: Life Long Learning</strong> - Recognize the need for, and engage in, independent and life-long learning.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let studentsData = [];
+        const PO_LABELS = ['PO1', 'PO2', 'PO3', 'PO4', 'PO5', 'PO6', 'PO7', 'PO8', 'PO9', 'PO10', 'PO11'];
+        const STUDENT_COLORS = ['#FF0000', '#0000FF', '#00FF00', '#9D00FF', '#FF8C00', '#00FFFF', '#FF00FF', '#00FF7F', '#FF1493', '#FFD700'];
+        const ADMIN_PASSWORD = 'admin123'; // Change this to your preferred password
+
+        // Load Excel file automatically on page load
+        window.onload = function() {
+            fetch('data/po-attainment-data.xlsx')
+                .then(response => response.arrayBuffer())
+                .then(data => {
+                    try {
+                        const workbook = XLSX.read(new Uint8Array(data), {type: 'array'});
+                        studentsData = [];
+                        workbook.SheetNames.forEach(sheetName => {
+                            const sheet = workbook.Sheets[sheetName];
+                            const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 6 });
+                            if (jsonData.length > 0 && jsonData[0].includes('UiTM ID')) {
+                                processExcelData(jsonData.slice(1), sheetName);
+                            }
+                        });
+                        showMessage('Excel file loaded successfully! ' + studentsData.length + ' students found.', 'success');
+                    } catch (error) {
+                        showMessage('Error loading default Excel file: ' + error.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    showMessage('Failed to load default Excel file. Admin can upload a new file.', 'error');
+                });
+        };
+
+        // File upload handler (for admin only)
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    studentsData = [];
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 6 });
+                        if (jsonData.length > 0 && jsonData[0].includes('UiTM ID')) {
+                            processExcelData(jsonData.slice(1), sheetName);
+                        }
+                    });
+                    showMessage('Excel file uploaded successfully! ' + studentsData.length + ' students found.', 'success');
+                } catch (error) {
+                    showMessage('Error reading Excel file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processExcelData(data, sheetName) {
+            const sheetStudents = data
+                .filter(row => row[2] && !isNaN(row[2]))
+                .map(row => {
+                    const student = {
+                        id: row[2],
+                        name: row[1] || 'Unknown',
+                        batch: sheetName,
+                        pos: []
+                    };
+                    for (let i = 3; i <= 13; i++) {
+                        let value = row[i] || 0;
+                        if (typeof value === 'string' && value.includes('%')) {
+                            value = parseFloat(value.replace('%', ''));
+                        }
+                        student.pos.push(Math.max(0, Math.min(100, parseFloat(value) || 0)));
+                    }
+                    return student;
+                });
+            studentsData = studentsData.concat(sheetStudents);
+        }
+
+        function toggleUploadSection() {
+            const password = prompt('Enter admin password to access upload section:');
+            if (password === ADMIN_PASSWORD) {
+                const uploadSection = document.getElementById('uploadSection');
+                uploadSection.classList.toggle('active');
+                showMessage('Upload section toggled.', 'success');
+            } else {
+                showMessage('Incorrect password. Upload access denied.', 'error');
+            }
+        }
+
+        function generateChart() {
+            const studentIdsInput = document.getElementById('studentIdInput').value.trim();
+            if (!studentIdsInput) {
+                showMessage('Please enter at least one UiTM ID', 'error');
+                return;
+            }
+            if (studentsData.length === 0) {
+                showMessage('No data loaded. Admin must upload an Excel file.', 'error');
+                return;
+            }
+            const studentIds = studentIdsInput.split(',').map(id => id.trim()).filter(id => id);
+            if (studentIds.length > 10) {
+                showMessage('Please enter up to 10 UiTM IDs only', 'error');
+                return;
+            }
+            const selectedStudents = [];
+            for (const id of studentIds) {
+                const student = studentsData.find(s => s.id.toString().toLowerCase() === id.toLowerCase());
+                if (student) {
+                    selectedStudents.push(student);
+                } else {
+                    showMessage(`UiTM ID ${id} not found in the data`, 'error');
+                    return;
+                }
+            }
+            document.getElementById('chartsContainer').style.display = 'grid';
+            let studentInfoHTML = '';
+            selectedStudents.forEach((student, index) => {
+                const avgScore = (student.pos.reduce((a, b) => a + b, 0) / 11).toFixed(1);
+                studentInfoHTML += `
+                    <strong>Student ${index + 1}</strong><br>
+                    <strong>UiTM ID:</strong> ${student.id}<br>
+                    <strong>Name:</strong> ${student.name}<br>
+                    <strong>Batch:</strong> ${student.batch}<br>
+                    <strong>Average Score:</strong> ${avgScore}%<br><br>
+                `;
+            });
+            studentInfoHTML += `<strong>Standard KPI:</strong> 50% (All POs)`;
+            document.getElementById('studentInfo').innerHTML = studentInfoHTML;
+            const standardData = new Array(11).fill(50);
+            drawCombinedSpiderChart('combinedChart', selectedStudents, standardData);
+            showMessage('Spider web chart generated successfully!', 'success');
+        }
+
+        function showStandardKPI() {
+            document.getElementById('chartsContainer').style.display = 'grid';
+            document.getElementById('studentInfo').innerHTML = `
+                <strong>Standard KPI Benchmark</strong><br>
+                All POs at 50% achievement level<br>
+                <em>Enter up to 10 UiTM IDs to compare</em>
+            `;
+            const standardData = new Array(11).fill(50);
+            drawCombinedSpiderChart('combinedChart', [], standardData);
+            showMessage('Standard KPI chart displayed', 'success');
+        }
+
+        function drawCombinedSpiderChart(svgId, students, standardData) {
+            const svg = document.getElementById(svgId);
+            svg.innerHTML = '';
+            const size = Math.min(window.innerWidth * 0.85, 400);
+            const center = size / 2;
+            const maxRadius = size * 0.36;
+            const levels = 5;
+            svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            for (let i = 1; i <= levels; i++) {
+                const radius = (maxRadius / levels) * i;
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', center);
+                circle.setAttribute('cy', center);
+                circle.setAttribute('r', radius);
+                circle.setAttribute('fill', 'none');
+                circle.setAttribute('stroke', '#e0e0e0');
+                circle.setAttribute('stroke-width', '1');
+                svg.appendChild(circle);
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', center + 5);
+                text.setAttribute('y', center - radius + 5);
+                text.setAttribute('font-size', clamp(8, size * 0.025, 10));
+                text.setAttribute('fill', '#666');
+                text.textContent = `${(i * 20)}%`;
+                svg.appendChild(text);
+            }
+            const angleStep = (2 * Math.PI) / 11;
+            const studentPointsList = students.map(() => []);
+            const standardPoints = [];
+            for (let i = 0; i < 11; i++) {
+                const angle = i * angleStep - Math.PI / 2;
+                const x1 = center;
+                const y1 = center;
+                const x2 = center + Math.cos(angle) * maxRadius;
+                const y2 = center + Math.sin(angle) * maxRadius;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', '#ccc');
+                line.setAttribute('stroke-width', '1');
+                svg.appendChild(line);
+                students.forEach((student, studentIndex) => {
+                    const studentValue = student.pos[i];
+                    const studentRadius = (studentValue / 100) * maxRadius;
+                    const studentX = center + Math.cos(angle) * studentRadius;
+                    const studentY = center + Math.sin(angle) * studentRadius;
+                    studentPointsList[studentIndex].push([studentX, studentY, studentValue]);
+                });
+                const standardValue = standardData[i];
+                const standardRadius = (standardValue / 100) * maxRadius;
+                const standardX = center + Math.cos(angle) * standardRadius;
+                const standardY = center + Math.sin(angle) * standardRadius;
+                standardPoints.push([standardX, standardY, standardValue]);
+                const labelRadius = maxRadius + clamp(10, size * 0.05, 15);
+                const labelX = center + Math.cos(angle) * labelRadius;
+                const labelY = center + Math.sin(angle) * labelRadius;
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', labelX);
+                label.setAttribute('y', labelY);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('dominant-baseline', 'middle');
+                label.setAttribute('font-size', clamp(8, size * 0.03, 10));
+                label.setAttribute('font-weight', 'bold');
+                label.setAttribute('fill', '#333');
+                label.textContent = PO_LABELS[i];
+                svg.appendChild(label);
+            }
+            if (standardData.some(val => val > 0)) {
+                const standardPathData = standardPoints.map((point, index) => 
+                    `${index === 0 ? 'M' : 'L'} ${point[0]} ${point[1]}`
+                ).join(' ') + ' Z';
+                const standardPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                standardPolygon.setAttribute('d', standardPathData);
+                standardPolygon.setAttribute('fill', '#ff6b6b');
+                standardPolygon.setAttribute('fill-opacity', '0.2');
+                standardPolygon.setAttribute('stroke', '#ff6b6b');
+                standardPolygon.setAttribute('stroke-width', '2');
+                standardPolygon.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(standardPolygon);
+                standardPoints.forEach((point, index) => {
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', point[0]);
+                    circle.setAttribute('cy', point[1]);
+                    circle.setAttribute('r', clamp(3, size * 0.008, 4));
+                    circle.setAttribute('fill', '#ff6b6b');
+                    circle.setAttribute('stroke', 'white');
+                    circle.setAttribute('stroke-width', '1.5');
+                    svg.appendChild(circle);
+                });
+            }
+            students.forEach((student, studentIndex) => {
+                if (student.pos.some(val => val > 0)) {
+                    const studentPathData = studentPointsList[studentIndex].map((point, index) => 
+                        `${index === 0 ? 'M' : 'L'} ${point[0]} ${point[1]}`
+                    ).join(' ') + ' Z';
+                    const studentPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    studentPolygon.setAttribute('d', studentPathData);
+                    studentPolygon.setAttribute('fill', STUDENT_COLORS[studentIndex]);
+                    studentPolygon.setAttribute('fill-opacity', '0.3');
+                    studentPolygon.setAttribute('stroke', STUDENT_COLORS[studentIndex]);
+                    studentPolygon.setAttribute('stroke-width', '3');
+                    svg.appendChild(studentPolygon);
+                    studentPointsList[studentIndex].forEach((point, index) => {
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', point[0]);
+                        circle.setAttribute('cy', point[1]);
+                        circle.setAttribute('r', clamp(4, size * 0.012, 5));
+                        circle.setAttribute('fill', STUDENT_COLORS[studentIndex]);
+                        circle.setAttribute('stroke', 'white');
+                        circle.setAttribute('stroke-width', '1.5');
+                        svg.appendChild(circle);
+                        if (point[2] > 0) {
+                            const valueLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            valueLabel.setAttribute('x', point[0]);
+                            valueLabel.setAttribute('y', point[1] - clamp(6, size * 0.02, 8));
+                            valueLabel.setAttribute('text-anchor', 'middle');
+                            valueLabel.setAttribute('font-size', clamp(6, size * 0.02, 8));
+                            valueLabel.setAttribute('fill', STUDENT_COLORS[studentIndex]);
+                            valueLabel.setAttribute('font-weight', 'bold');
+                            valueLabel.textContent = `${point[2].toFixed(1)}%`;
+                            svg.appendChild(valueLabel);
+                        }
+                    });
+                }
+            });
+        }
+
+        function showMessage(message, type) {
+            const messageArea = document.getElementById('messageArea');
+            messageArea.innerHTML = `
+                <div class="${type}-message">
+                    ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 5000);
+        }
+
+        // Polyfill for clamp in SVG attributes
+        function clamp(min, val, max) {
+            return Math.min(Math.max(min, val), max);
+        }
+
+        document.getElementById('studentIdInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                generateChart();
+            }
+        });
+    </script>
+</body>
+</html>
