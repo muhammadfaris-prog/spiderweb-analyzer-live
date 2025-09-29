@@ -365,8 +365,13 @@
         const ADMIN_PASSWORD = 'admin123';
 
         window.onload = function() {
-            fetch('data/PO ATTAINMENT DATA.xlsx')
-                .then(response => response.arrayBuffer())
+            fetch('data/po attainment data.xlsx') // <-- UPDATED FILE PATH!
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.arrayBuffer();
+                })
                 .then(data => {
                     try {
                         const workbook = XLSX.read(new Uint8Array(data), {type: 'array'});
@@ -374,17 +379,22 @@
                         workbook.SheetNames.forEach(sheetName => {
                             const sheet = workbook.Sheets[sheetName];
                             const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 6 });
-                            if (jsonData.length > 0 && jsonData[0].includes('UiTM ID')) {
+                            if (jsonData.length > 0 && jsonData[0] && jsonData[0].includes('UiTM ID')) {
                                 processExcelData(jsonData.slice(1), sheetName);
                             }
                         });
-                        showMessage('Excel file loaded successfully! ' + studentsData.length + ' students found.', 'success');
+                        if (studentsData.length > 0) {
+                            showMessage('Excel file loaded successfully! ' + studentsData.length + ' students found.', 'success');
+                        } else {
+                             showMessage('Excel file loaded, but no student data found. Please check file format.', 'error');
+                        }
                     } catch (error) {
-                        showMessage('Error loading default Excel file: ' + error.message, 'error');
+                        showMessage('Error processing Excel file: ' + error.message, 'error');
                     }
                 })
                 .catch(error => {
-                    showMessage('Failed to load default Excel file. Admin can upload a new file.', 'error');
+                    showMessage('Error loading default Excel file. Make sure "po attainment data.xlsx" is in a "data" folder. Admin can upload a new file.', 'error');
+                    console.error('Fetch error:', error);
                 });
         };
 
@@ -402,11 +412,15 @@
                     workbook.SheetNames.forEach(sheetName => {
                         const sheet = workbook.Sheets[sheetName];
                         const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, range: 6 });
-                        if (jsonData.length > 0 && jsonData[0].includes('UiTM ID')) {
+                        if (jsonData.length > 0 && jsonData[0] && jsonData[0].includes('UiTM ID')) {
                             processExcelData(jsonData.slice(1), sheetName);
                         }
                     });
-                    showMessage('Excel file uploaded successfully! ' + studentsData.length + ' students found.', 'success');
+                     if (studentsData.length > 0) {
+                        showMessage('Excel file uploaded successfully! ' + studentsData.length + ' students found.', 'success');
+                    } else {
+                         showMessage('Excel file uploaded, but no student data found. Please check file format.', 'error');
+                    }
                 } catch (error) {
                     showMessage('Error reading Excel file: ' + error.message, 'error');
                 }
@@ -417,7 +431,7 @@
         function processExcelData(data, sheetName) {
             const batchId = sheetName.split(' ').find(part => !isNaN(part)) || sheetName;
             const sheetStudents = data
-                .filter(row => row[2] && !isNaN(row[2]))
+                .filter(row => row && row[2] && !isNaN(row[2]))
                 .map(row => {
                     const student = {
                         id: row[2],
@@ -442,7 +456,7 @@
             if (password === ADMIN_PASSWORD) {
                 document.getElementById('uploadSection').classList.toggle('active');
                 showMessage('Upload section toggled.', 'success');
-            } else {
+            } else if (password) {
                 showMessage('Incorrect password. Upload access denied.', 'error');
             }
         }
@@ -454,7 +468,7 @@
                 return;
             }
             if (studentsData.length === 0) {
-                showMessage('No data loaded. Admin must upload an Excel file.', 'error');
+                showMessage('No data loaded. Please check the Excel file or upload one.', 'error');
                 return;
             }
             const studentIds = studentIdsInput.split(',').map(id => id.trim()).filter(id => id);
@@ -462,15 +476,23 @@
                 showMessage('Please enter up to 10 UiTM IDs only', 'error');
                 return;
             }
-            const selectedStudents = studentIds.map(id => {
-                const student = studentsData.find(s => s.id.toString().toLowerCase() === id.toLowerCase());
-                if (!student) {
-                    showMessage(`UiTM ID ${id} not found`, 'error');
+            const selectedStudents = [];
+            const notFoundIds = [];
+            studentIds.forEach(id => {
+                const student = studentsData.find(s => String(s.id).toLowerCase() === id.toLowerCase());
+                if (student) {
+                    selectedStudents.push(student);
+                } else {
+                    notFoundIds.push(id);
                 }
-                return student;
-            }).filter(Boolean);
+            });
 
-            if (selectedStudents.length !== studentIds.length) return;
+            if (notFoundIds.length > 0) {
+                showMessage(`UiTM ID(s) not found: ${notFoundIds.join(', ')}`, 'error');
+                return;
+            }
+            
+            if (selectedStudents.length === 0) return;
 
             document.getElementById('chartsContainer').style.display = 'grid';
             let studentInfoHTML = '';
@@ -497,8 +519,8 @@
         function generateDynamicSuggestions(student, studentIndex) {
             const poScores = student.pos.map((score, i) => ({ po: PO_LABELS[i], score }));
             poScores.sort((a, b) => a.score - b.score);
-            const weaknesses = poScores.slice(0, 3);
-            const strengths = poScores.slice(-3).reverse();
+            const weaknesses = poScores.slice(0, 3).filter(item => item.score < 100); // Exclude perfect scores
+            const strengths = poScores.slice(-3).reverse().filter(item => item.score > 0); // Exclude zero scores
 
             const suggestions = {
                 'PO1': { weak: "Focus on strengthening your grasp of fundamental engineering principles. Revisit core course materials.", strong: "Your strong knowledge base is a great asset. Try to apply it to complex, multi-disciplinary problems." },
@@ -515,17 +537,23 @@
             };
 
             let html = `<div class="suggestion-section"><h4>Personalized Feedback for Student ${studentIndex} (${student.name})</h4>`;
-            html += `<h5>Top Strengths:</h5><ul class="suggestion-list strength">`;
-            strengths.forEach(s => {
-                html += `<li><strong>${s.po} (${s.score.toFixed(1)}%):</strong> ${suggestions[s.po].strong}</li>`;
-            });
-            html += `</ul>`;
-            html += `<h5 style="margin-top: 2vw;">Areas for Improvement:</h5><ul class="suggestion-list weakness">`;
-            weaknesses.forEach(w => {
-                html += `<li><strong>${w.po} (${w.score.toFixed(1)}%):</strong> ${suggestions[w.po].weak}</li>`;
-            });
-            html += `</ul></div>`;
-             html += `<div class="ai-disclaimer">
+            if (strengths.length > 0) {
+                 html += `<h5>Top Strengths:</h5><ul class="suggestion-list strength">`;
+                strengths.forEach(s => {
+                    html += `<li><strong>${s.po} (${s.score.toFixed(1)}%):</strong> ${suggestions[s.po].strong}</li>`;
+                });
+                html += `</ul>`;
+            }
+           
+            if(weaknesses.length > 0) {
+                html += `<h5 style="margin-top: 2vw;">Areas for Improvement:</h5><ul class="suggestion-list weakness">`;
+                weaknesses.forEach(w => {
+                    html += `<li><strong>${w.po} (${w.score.toFixed(1)}%):</strong> ${suggestions[w.po].weak}</li>`;
+                });
+                html += `</ul>`;
+            }
+            html += `</div>`;
+            html += `<div class="ai-disclaimer">
                         <strong>Note:</strong> The suggestions above are generated by an AI assistant based on your performance data. For personalized and detailed academic planning, please consult your <strong>Penasihat Akademik</strong>.
                     </div>`;
             return html;
@@ -699,6 +727,4 @@
         });
     </script>
 </body>
-
 </html>
-
