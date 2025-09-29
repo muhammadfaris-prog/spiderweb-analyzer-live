@@ -365,7 +365,7 @@
         const ADMIN_PASSWORD = 'admin123';
 
         window.onload = function() {
-            fetch('data/po attainment data.xlsx') // <-- UPDATED FILE PATH!
+            fetch('/data/po attainment data.xlsx') // <-- UPDATED FILE PATH!
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
@@ -728,3 +728,4 @@
     </script>
 </body>
 </html>
+
