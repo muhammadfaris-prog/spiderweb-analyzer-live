@@ -178,6 +178,48 @@
         .legend div span {
             font-size: clamp(0.8rem, 2.5vw, 0.9rem);
         }
+        .dynamic-suggestions {
+            margin-top: 3vw;
+            text-align: left;
+            padding: 3vw;
+            background: #e3f2fd;
+            border-radius: 10px;
+        }
+        .suggestion-section {
+            margin-bottom: 2.5vw;
+        }
+        .suggestion-section h4 {
+            font-size: clamp(1rem, 3.5vw, 1.1rem);
+            margin-bottom: 1.5vw;
+            color: #0d47a1;
+        }
+        .suggestion-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        .suggestion-list li {
+            margin-bottom: 1.5vw;
+            padding-left: 2.5vw;
+            position: relative;
+            font-size: clamp(0.8rem, 2.8vw, 0.9rem);
+        }
+        .suggestion-list li::before {
+            content: '✅';
+            position: absolute;
+            left: 0;
+            color: #4caf50;
+        }
+        .suggestion-list.weakness li::before {
+            content: '🔧';
+            color: #f44336;
+        }
+        .ai-disclaimer {
+            margin-top: 2vw;
+            padding: 2vw;
+            background: #fff9c4;
+            border-left: 4px solid #fbc02d;
+            font-size: clamp(0.7rem, 2.2vw, 0.8rem);
+        }
         .po-definitions {
             margin-top: 3vw;
             text-align: left;
@@ -296,6 +338,7 @@
                     <div><div style="background: #ff6b6b;"></div><span>Standard KPI (50%)</span></div>
                 </div>
                 <svg class="spider-chart" id="combinedChart"></svg>
+                <div id="dynamicSuggestions" class="dynamic-suggestions"></div>
                 <div class="po-definitions">
                     <h4>ETAC 2024 Programme Learning Outcomes (PLOs)</h4>
                     <ul>
@@ -319,11 +362,10 @@
         let studentsData = [];
         const PO_LABELS = ['PO1', 'PO2', 'PO3', 'PO4', 'PO5', 'PO6', 'PO7', 'PO8', 'PO9', 'PO10', 'PO11'];
         const STUDENT_COLORS = ['#FF0000', '#0000FF', '#00FF00', '#9D00FF', '#FF8C00', '#00FFFF', '#FF00FF', '#00FF7F', '#FF1493', '#FFD700'];
-        const ADMIN_PASSWORD = 'admin123'; // Change this to your preferred password
+        const ADMIN_PASSWORD = 'admin123';
 
-        // Load Excel file automatically on page load
         window.onload = function() {
-            fetch('data/po-attainment-data.xlsx')
+            fetch('/data/PO ATTAINMENT DATA_MAR\'25-JUL\'25_CEEM243_PA.xlsx')
                 .then(response => response.arrayBuffer())
                 .then(data => {
                     try {
@@ -346,7 +388,6 @@
                 });
         };
 
-        // File upload handler (for admin only)
         document.getElementById('fileInput').addEventListener('change', handleFileUpload);
 
         function handleFileUpload(event) {
@@ -374,13 +415,14 @@
         }
 
         function processExcelData(data, sheetName) {
+            const batchId = sheetName.split(' ').find(part => !isNaN(part)) || sheetName;
             const sheetStudents = data
                 .filter(row => row[2] && !isNaN(row[2]))
                 .map(row => {
                     const student = {
                         id: row[2],
                         name: row[1] || 'Unknown',
-                        batch: sheetName,
+                        batch: `ID ${batchId}`,
                         pos: []
                     };
                     for (let i = 3; i <= 13; i++) {
@@ -398,8 +440,7 @@
         function toggleUploadSection() {
             const password = prompt('Enter admin password to access upload section:');
             if (password === ADMIN_PASSWORD) {
-                const uploadSection = document.getElementById('uploadSection');
-                uploadSection.classList.toggle('active');
+                document.getElementById('uploadSection').classList.toggle('active');
                 showMessage('Upload section toggled.', 'success');
             } else {
                 showMessage('Incorrect password. Upload access denied.', 'error');
@@ -421,18 +462,19 @@
                 showMessage('Please enter up to 10 UiTM IDs only', 'error');
                 return;
             }
-            const selectedStudents = [];
-            for (const id of studentIds) {
+            const selectedStudents = studentIds.map(id => {
                 const student = studentsData.find(s => s.id.toString().toLowerCase() === id.toLowerCase());
-                if (student) {
-                    selectedStudents.push(student);
-                } else {
-                    showMessage(`UiTM ID ${id} not found in the data`, 'error');
-                    return;
+                if (!student) {
+                    showMessage(`UiTM ID ${id} not found`, 'error');
                 }
-            }
+                return student;
+            }).filter(Boolean);
+
+            if (selectedStudents.length !== studentIds.length) return;
+
             document.getElementById('chartsContainer').style.display = 'grid';
             let studentInfoHTML = '';
+            let dynamicSuggestionsHTML = '';
             selectedStudents.forEach((student, index) => {
                 const avgScore = (student.pos.reduce((a, b) => a + b, 0) / 11).toFixed(1);
                 studentInfoHTML += `
@@ -442,13 +484,53 @@
                     <strong>Batch:</strong> ${student.batch}<br>
                     <strong>Average Score:</strong> ${avgScore}%<br><br>
                 `;
+                dynamicSuggestionsHTML += generateDynamicSuggestions(student, index + 1);
             });
             studentInfoHTML += `<strong>Standard KPI:</strong> 50% (All POs)`;
             document.getElementById('studentInfo').innerHTML = studentInfoHTML;
+            document.getElementById('dynamicSuggestions').innerHTML = dynamicSuggestionsHTML;
             const standardData = new Array(11).fill(50);
             drawCombinedSpiderChart('combinedChart', selectedStudents, standardData);
             showMessage('Spider web chart generated successfully!', 'success');
         }
+        
+        function generateDynamicSuggestions(student, studentIndex) {
+            const poScores = student.pos.map((score, i) => ({ po: PO_LABELS[i], score }));
+            poScores.sort((a, b) => a.score - b.score);
+            const weaknesses = poScores.slice(0, 3);
+            const strengths = poScores.slice(-3).reverse();
+
+            const suggestions = {
+                'PO1': { weak: "Focus on strengthening your grasp of fundamental engineering principles. Revisit core course materials.", strong: "Your strong knowledge base is a great asset. Try to apply it to complex, multi-disciplinary problems." },
+                'PO2': { weak: "Practice problem analysis by breaking down complex questions into smaller parts. Work on identifying key variables.", strong: "You excel at problem analysis. Mentor junior students or lead problem-solving sessions in study groups." },
+                'PO3': { weak: "Get more hands-on with design projects. Use CAD tools and simulations to visualize your solutions.", strong: "Your design skills are impressive. Participate in design competitions to showcase your talent." },
+                'PO4': { weak: "Engage more in research and investigation. Read academic papers and try to replicate experiments or studies.", strong: "You have a knack for investigation. Consider contributing to a research project with a faculty member." },
+                'PO5': { weak: "Improve your proficiency with modern engineering tools. Take online tutorials for software relevant to your field.", strong: "Your expertise in tool usage is valuable. Create tutorials or lead workshops for your peers." },
+                'PO6': { weak: "Broaden your understanding of the societal and environmental impact of engineering projects. Read case studies.", strong: "You have a strong sense of contextual awareness. Engage in discussions about engineering and society." },
+                'PO7': { weak: "Reflect on ethical case studies in engineering. Understand the importance of professional conduct.", strong: "Your commitment to ethics is commendable. Be a role model for ethical behavior in your team projects." },
+                'PO8': { weak: "Actively seek out team projects. Practice communication and collaboration skills within diverse groups.", strong: "You are a strong team player. Take on leadership roles to further develop your teamwork abilities." },
+                'PO9': { weak: "Improve your communication skills. Practice presenting your work and writing clear, concise technical reports.", strong: "Your communication skills are a key strength. Present your projects at student symposiums or conferences." },
+                'PO10': { weak: "Learn more about project management and finance. Tools like Gantt charts and budgeting exercises can be helpful.", strong: "You have strong project management skills. Lead a student project from conception to completion." },
+                'PO11': { weak: "Cultivate a habit of lifelong learning. Follow industry news, take online courses, and explore new technologies.", strong: "Your commitment to lifelong learning is excellent. Explore advanced topics or certifications in your area of interest." },
+            };
+
+            let html = `<div class="suggestion-section"><h4>Personalized Feedback for Student ${studentIndex} (${student.name})</h4>`;
+            html += `<h5>Top Strengths:</h5><ul class="suggestion-list strength">`;
+            strengths.forEach(s => {
+                html += `<li><strong>${s.po} (${s.score.toFixed(1)}%):</strong> ${suggestions[s.po].strong}</li>`;
+            });
+            html += `</ul>`;
+            html += `<h5 style="margin-top: 2vw;">Areas for Improvement:</h5><ul class="suggestion-list weakness">`;
+            weaknesses.forEach(w => {
+                html += `<li><strong>${w.po} (${w.score.toFixed(1)}%):</strong> ${suggestions[w.po].weak}</li>`;
+            });
+            html += `</ul></div>`;
+             html += `<div class="ai-disclaimer">
+                        <strong>Note:</strong> The suggestions above are generated by an AI assistant based on your performance data. For personalized and detailed academic planning, please consult your <strong>Penasihat Akademik</strong>.
+                    </div>`;
+            return html;
+        }
+
 
         function showStandardKPI() {
             document.getElementById('chartsContainer').style.display = 'grid';
@@ -457,6 +539,7 @@
                 All POs at 50% achievement level<br>
                 <em>Enter up to 10 UiTM IDs to compare</em>
             `;
+            document.getElementById('dynamicSuggestions').innerHTML = ''; // Clear suggestions
             const standardData = new Array(11).fill(50);
             drawCombinedSpiderChart('combinedChart', [], standardData);
             showMessage('Standard KPI chart displayed', 'success');
@@ -605,7 +688,6 @@
             }, 5000);
         }
 
-        // Polyfill for clamp in SVG attributes
         function clamp(min, val, max) {
             return Math.min(Math.max(min, val), max);
         }
