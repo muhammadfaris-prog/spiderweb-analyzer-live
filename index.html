@@ -262,6 +262,8 @@
             text-align: center;
             font-size: clamp(0.85rem, 3vw, 0.95rem);
         }
+        
+        /* --- MOBILE STYLES --- */
         @media (max-width: 600px) {
             .container {
                 border-radius: 10px;
@@ -283,6 +285,18 @@
             .spider-chart {
                 width: clamp(200px, 85vw, 300px);
                 height: clamp(200px, 85vw, 300px);
+            }
+            /* NEW: Centering and padding for mobile */
+            .dynamic-suggestions, .po-definitions {
+                text-align: center;
+            }
+            .suggestion-list, .po-definitions ul {
+                display: inline-block; /* Allows lists to be centered */
+                text-align: left;      /* Keeps list text left-aligned for readability */
+                margin: 0 auto;
+            }
+            .suggestion-list li {
+                padding-left: 8vw; /* Increased padding to prevent overlap */
             }
             .po-definitions {
                 font-size: clamp(0.7rem, 2.8vw, 0.8rem);
@@ -365,7 +379,7 @@
         const ADMIN_PASSWORD = 'admin123';
 
         window.onload = function() {
-            fetch('data/po attainment data.xlsx') // <-- UPDATED FILE PATH!
+            fetch('data/po attainment data.xlsx')
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
@@ -519,8 +533,8 @@
         function generateDynamicSuggestions(student, studentIndex) {
             const poScores = student.pos.map((score, i) => ({ po: PO_LABELS[i], score }));
             poScores.sort((a, b) => a.score - b.score);
-            const weaknesses = poScores.slice(0, 3).filter(item => item.score < 100); // Exclude perfect scores
-            const strengths = poScores.slice(-3).reverse().filter(item => item.score > 0); // Exclude zero scores
+            const weaknesses = poScores.slice(0, 3).filter(item => item.score < 100);
+            const strengths = poScores.slice(-3).reverse().filter(item => item.score > 0);
 
             const suggestions = {
                 'PO1': { weak: "Focus on strengthening your grasp of fundamental engineering principles. Revisit core course materials.", strong: "Your strong knowledge base is a great asset. Try to apply it to complex, multi-disciplinary problems." },
@@ -567,7 +581,7 @@
                 All POs at 50% achievement level<br>
                 <em>Enter up to 10 UiTM IDs to compare</em>
             `;
-            document.getElementById('dynamicSuggestions').innerHTML = ''; // Clear suggestions
+            document.getElementById('dynamicSuggestions').innerHTML = '';
             const standardData = new Array(11).fill(50);
             drawCombinedSpiderChart('combinedChart', [], standardData);
             showMessage('Standard KPI chart displayed', 'success');
@@ -728,5 +742,3 @@
     </script>
 </body>
 </html>
-
-
